@@ -55,6 +55,16 @@ body{
 /* ---------- header ---------- */
 header{display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; padding:4px 4px 0}
 .brand{display:flex; align-items:center; gap:14px; min-width:0}
+.header-actions{display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap}
+.header-download{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  padding:9px 13px; border-radius:11px; text-decoration:none;
+  background:#f8fafc; border:1px solid #ffffff; color:#080b12;
+  font-size:12.5px; font-weight:750; letter-spacing:.01em;
+  box-shadow:0 5px 18px rgba(0,0,0,.22);
+}
+.header-download:hover{background:#e2e8f0; border-color:#cbd5e1; color:#080b12; transform:translateY(-1px)}
+.header-download svg{width:15px;height:15px;flex:none}
 .logo{
   width:46px; height:46px; border-radius:13px; flex:none;
   background:var(--grad);
@@ -296,6 +306,7 @@ input[type=range]:disabled{opacity:.3}
 /* ---------- responsive ---------- */
 @media (max-width:640px){
   header{flex-direction:column;align-items:flex-start;gap:12px}
+  .header-actions{width:100%;justify-content:space-between}
   .controls{padding:15px}
   .row-side{flex-direction:column;align-items:flex-end;gap:6px}
 }
@@ -326,7 +337,21 @@ input[type=range]:disabled{opacity:.3}
         <p class="sub">Any image → any format. 100% in your browser — nothing is uploaded.</p>
       </div>
     </div>
-    <span class="pill-any"><span class="dot"></span>Any → Any</span>
+    <div class="header-actions">
+      <a class="header-download"
+         href="https://github.com/Sub0Kanzai/AnyIMG_Converter/"
+         target="_blank"
+         rel="noopener noreferrer"
+         aria-label="Open the AnyIMG Converter GitHub repository to get the HTML source">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 3v11"/>
+          <path d="m7 9 5 5 5-5"/>
+          <path d="M5 17v3h14v-3"/>
+        </svg>
+        Download HTML
+      </a>
+      <span class="pill-any"><span class="dot"></span>Any → Any</span>
+    </div>
   </header>
 
   <div id="dropzone" class="dropzone glow">
