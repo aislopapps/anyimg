@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AnyIMG Converter — Any Image → Any Format</title>
+<style>
+:root{
+  --bg:#05070d;
+  --panel:rgba(16,21,33,0.62);
+  --panel-2:rgba(24,31,47,0.72);
+  --line:rgba(255,255,255,0.07);
+  --line-strong:rgba(255,255,255,0.14);
+  --text:#e8eefc;
+  --muted:#7f8da6;
+  --cyan:#22d3ee;
+  --blue:#4d8dff;
+  --violet:#a78bfa;
+  --green:#34d399;
+  --red:#fb7185;
+  --radius:16px;
+  --grad:linear-gradient(135deg,#22d3ee 0%,#4d8dff 50%,#a78bfa 100%);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; min-height:100vh; padding:32px 16px 70px;
+  font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1100px 700px at 12% -12%, rgba(77,141,255,0.12), transparent 62%),
+    radial-gradient(900px 650px at 88% 112%, rgba(167,139,250,0.10), transparent 62%),
+    var(--bg);
+  overflow-x:hidden;
+}
+
+/* ---------- generated background canvas + spotlight ---------- */
+#bgCanvas{
+  position:fixed; inset:0; width:100%; height:100%;
+  z-index:0; display:block; pointer-events:none;
+}
+#spotlight{
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(520px circle at var(--sx,50%) var(--sy,50%),
+             rgba(77,141,255,0.10), rgba(34,211,238,0.04) 40%, transparent 68%);
+}
+
+/* ---------- layout ---------- */
+.app{
+  position:relative; z-index:2;
+  max-width:960px; margin:0 auto;
+  display:flex; flex-direction:column; gap:20px;
+}
+
+/* ---------- header ---------- */
+header{display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; padding:4px 4px 0}
+.brand{display:flex; align-items:center; gap:14px; min-width:0}
+.logo{
+  width:46px; height:46px; border-radius:13px; flex:none;
+  background:var(--grad);
+  display:grid; place-items:center;
+  box-shadow:0 8px 26px -6px rgba(77,141,255,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+  position:relative; overflow:hidden;
+}
+.logo::after{
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,0.5) 50%,transparent 70%);
+  transform:translateX(-120%);
+  animation:sheen 5.5s ease-in-out infinite;
+}
+@keyframes sheen{0%,70%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+.logo svg{width:24px;height:24px;position:relative;z-index:1}
+header h1{
+  margin:0; font-size:23px; letter-spacing:-.025em; font-weight:700; line-height:1.15;
+  background:linear-gradient(180deg,#ffffff,#b9c8e4);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+header h1 em{font-style:normal;font-weight:500;color:#8fa4c6;-webkit-text-fill-color:#8fa4c6}
+.sub{margin:3px 0 0; color:var(--muted); font-size:13.5px}
+
+.pill-any{
+  display:inline-flex; align-items:center; gap:8px;
+  font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+  padding:8px 14px; border-radius:999px;
+  border:1px solid rgba(120,180,255,0.28);
+  background:linear-gradient(135deg,rgba(34,211,238,0.10),rgba(167,139,250,0.10));
+  color:#b9d4ff; white-space:nowrap;
+}
+.pill-any .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);
+  box-shadow:0 0 10px var(--cyan); animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ---------- generic glow panel ---------- */
+.glow{position:relative}
+.glow::before{
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  background:radial-gradient(280px circle at var(--mx,50%) var(--my,50%),
+             rgba(120,180,255,0.13), transparent 66%);
+  opacity:0; transition:opacity .28s ease; pointer-events:none;
+}
+.glow:hover::before{opacity:1}
+.glow>*{position:relative; z-index:1}
+
+/* ---------- dropzone ---------- */
+.dropzone{
+  border:1.5px dashed rgba(255,255,255,0.12);
+  border-radius:var(--radius);
+  background:var(--panel);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  padding:40px 22px; text-align:center; cursor:pointer;
+  transition:border-color .2s, background .2s, transform .2s;
+  user-select:none;
+}
+.dropzone:hover{border-color:rgba(120,180,255,0.45); background:rgba(22,30,46,0.7)}
+.dropzone.drag{border-color:var(--cyan); background:rgba(18,40,58,0.8); transform:scale(1.006)}
+.dz-icon{font-size:36px;line-height:1;filter:drop-shadow(0 6px 16px rgba(34,211,238,0.35))}
+.dz-title{font-weight:650;margin-top:10px;font-size:16px}
+.dz-sub{color:var(--muted);font-size:13px;margin-top:5px}
+
+/* ---------- controls ---------- */
+.controls{
+  display:flex; flex-wrap:wrap; gap:16px; align-items:flex-end;
+  background:var(--panel);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line); border-radius:var(--radius); padding:18px;
+}
+
+/* Dark, high-contrast control panel. Keep this surface opaque so the
+   animated page background cannot wash out the controls. */
+.controls{
+  background:#080b12;
+  color:#f8fafc;
+  border:1px solid #30394b;
+  box-shadow:0 10px 28px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.035);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.controls .ctrl label{color:#cbd5e1}
+.controls .ctrl label output{color:#ffffff}
+.controls select,
+.controls input[type=number]{
+  background:#111827;
+  border:1px solid #4b5563;
+  color:#f8fafc;
+  color-scheme:dark;
+}
+.controls select option{background:#111827;color:#f8fafc}
+.controls input[type=color]{
+  background:#111827;
+  border:1px solid #64748b;
+  color-scheme:dark;
+}
+.controls .btn:not(.primary){
+  background:#182131;
+  border-color:#4b5563;
+  color:#f1f5f9;
+}
+.controls .btn.ghost{background:transparent;color:#dbeafe}
+.controls .btn:disabled{opacity:.58}
+
+.ctrl{display:flex; flex-direction:column; gap:9px; flex:1 1 148px; min-width:132px}
+.ctrl.buttons{flex:0 0 auto; flex-direction:row; gap:9px; flex-wrap:wrap}
+.ctrl label{
+  font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase;
+  letter-spacing:.09em; display:flex; justify-content:space-between; gap:10px;
+}
+.ctrl label output{color:var(--text); font-weight:700; text-transform:none; letter-spacing:0}
+
+select,input[type=number]{
+  background:rgba(10,14,22,0.65); border:1px solid var(--line-strong); color:var(--text);
+  border-radius:11px; padding:11px 13px; font:inherit; width:100%; cursor:pointer;
+  transition:border-color .15s, box-shadow .15s;
+}
+select:focus,input[type=number]:focus{
+  outline:none; border-color:rgba(77,141,255,0.7);
+  box-shadow:0 0 0 3px rgba(77,141,255,0.16);
+}
+select:disabled{opacity:.55;cursor:default}
+input[type=number]{cursor:text}
+input[type=color]{
+  width:100%; height:44px; padding:3px; border:1px solid var(--line-strong);
+  border-radius:11px; background:rgba(10,14,22,0.65); cursor:pointer;
+}
+input[type=color]::-webkit-color-swatch-wrapper{padding:2px}
+input[type=color]::-webkit-color-swatch{border:none;border-radius:8px}
+input[type=color]::-moz-color-swatch{border:none;border-radius:8px}
+
+input[type=range]{
+  -webkit-appearance:none; appearance:none; height:6px; border-radius:99px;
+  background:linear-gradient(90deg,rgba(77,141,255,0.55),rgba(167,139,250,0.55));
+  outline:none; width:100%; margin:14px 0;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:18px; height:18px; border-radius:50%;
+  background:#fff; cursor:pointer; border:3px solid #0b1120;
+  box-shadow:0 0 0 1.5px rgba(120,180,255,0.9), 0 0 16px rgba(77,141,255,0.8);
+  transition:transform .12s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.12)}
+input[type=range]::-moz-range-thumb{
+  width:14px; height:14px; border-radius:50%; background:#fff; cursor:pointer;
+  border:3px solid #0b1120; box-shadow:0 0 0 1.5px rgba(120,180,255,0.9), 0 0 16px rgba(77,141,255,0.8);
+}
+input[type=range]:disabled{opacity:.3}
+
+/* ---------- buttons ---------- */
+.btn{
+  font:inherit; font-weight:650; border:1px solid var(--line-strong);
+  background:rgba(26,34,52,0.7); color:var(--text);
+  padding:11px 17px; border-radius:11px; cursor:pointer;
+  transition:background .15s, border-color .15s, transform .08s, box-shadow .15s;
+  white-space:nowrap; position:relative; overflow:hidden;
+}
+.btn:hover:not(:disabled){
+  background:rgba(38,50,74,0.85); border-color:rgba(120,180,255,0.4);
+  box-shadow:0 6px 20px -8px rgba(77,141,255,0.6);
+}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{
+  background:var(--grad); border-color:transparent; color:#04101c;
+  box-shadow:0 10px 28px -10px rgba(77,141,255,0.8);
+}
+.btn.primary:hover:not(:disabled){
+  background:var(--grad); filter:brightness(1.08);
+  box-shadow:0 14px 34px -10px rgba(77,141,255,0.95);
+}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,0.10)}
+.btn.small{padding:7px 11px;font-size:12.5px;border-radius:9px}
+
+/* ---------- progress + summary ---------- */
+.progress-wrap{display:flex;flex-direction:column;gap:7px}
+.progress{
+  height:8px; background:rgba(10,14,22,0.7); border-radius:99px;
+  overflow:hidden; border:1px solid var(--line);
+}
+.progress-bar{
+  height:100%; width:0; border-radius:99px;
+  background:linear-gradient(90deg,#22d3ee,#4d8dff,#a78bfa);
+  box-shadow:0 0 18px rgba(77,141,255,0.8);
+  transition:width .25s ease;
+}
+.progress-text{font-size:12px;color:var(--muted)}
+
+.summary{
+  background:var(--panel); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line); border-radius:13px;
+  padding:13px 17px; font-size:13.5px; color:var(--muted);
+}
+.summary b{color:var(--text)}
+.summary .save{color:var(--green);font-weight:700}
+.summary .err{color:var(--red);font-weight:700}
+
+/* ---------- rows ---------- */
+.list{display:flex;flex-direction:column;gap:9px}
+.row{
+  display:flex; align-items:center; gap:14px;
+  background:var(--panel); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  border:1px solid var(--line); border-radius:13px; padding:11px 15px;
+  animation:pop .22s ease;
+  transition:border-color .2s, background .2s;
+}
+@keyframes pop{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.row.working{border-color:rgba(77,141,255,0.45)}
+.row.error{border-color:rgba(251,113,133,0.4);background:rgba(38,17,23,0.62)}
+.thumb{
+  width:48px;height:48px;border-radius:9px;object-fit:cover;
+  background:#080b12;flex:none;display:block;
+  box-shadow:0 4px 14px -4px rgba(0,0,0,0.6);
+}
+.info{flex:1;min-width:0}
+.name{font-weight:650;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--muted);margin-top:3px}
+.meta b{color:var(--text)}
+.meta .save{color:var(--green);font-weight:600}
+.meta .err{color:var(--red)}
+.row-side{display:flex;align-items:center;gap:9px;flex:none}
+.row-side select{
+  width:auto; padding:7px 10px; font-size:12.5px; border-radius:9px;
+  min-width:88px; background:rgba(10,14,22,0.7);
+}
+
+.note{
+  color:var(--muted); font-size:12px; text-align:center; margin:6px 0 0;
+  display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap;
+}
+.status{
+  display:inline-block; padding:2px 9px; border-radius:999px;
+  font-weight:700; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+}
+.status.loading{background:rgba(77,141,255,0.14);color:#9eb8e8}
+.status.ready{background:rgba(52,211,153,0.14);color:#5eead4}
+.status.failed{background:rgba(251,113,133,0.14);color:#fda4af}
+.hidden{display:none !important}
+
+/* ---------- responsive ---------- */
+@media (max-width:640px){
+  header{flex-direction:column;align-items:flex-start;gap:12px}
+  .controls{padding:15px}
+  .row-side{flex-direction:column;align-items:flex-end;gap:6px}
+}
+@media (prefers-reduced-motion:reduce){
+  .logo::after{animation:none}
+  .pill-any .dot{animation:none}
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas" aria-hidden="true"></canvas>
+<div id="spotlight" aria-hidden="true"></div>
+
+<div class="app">
+
+  <header>
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"
+             stroke-linecap="round" stroke-linejoin="round" style="color:#04101c">
+          <path d="M4 8.5h13.5M17.5 8.5 14 5"/>
+          <path d="M20 15.5H6.5M6.5 15.5 10 19"/>
+        </svg>
+      </div>
+      <div>
+        <h1>AnyIMG <em>Converter</em></h1>
+        <p class="sub">Any image → any format. 100% in your browser — nothing is uploaded.</p>
+      </div>
+    </div>
+    <span class="pill-any"><span class="dot"></span>Any → Any</span>
+  </header>
+
+  <div id="dropzone" class="dropzone glow">
+    <div class="dz-icon">🖼️</div>
+    <div class="dz-title">Drop images here</div>
+    <div class="dz-sub">click to browse · paste from clipboard · JPG, PNG, GIF, WebP, SVG, AVIF, BMP, ICO…</div>
+  </div>
+  <input id="fileInput" type="file" accept="image/*,.svg,.ico,.bmp,.avif,.tif,.tiff" multiple hidden>
+
+  <section class="controls glow">
+    <div class="ctrl">
+      <label for="format">Output format</label>
+      <select id="format" disabled><option>detecting…</option></select>
+    </div>
+    <div class="ctrl">
+      <label for="quality">Quality <output id="qualityVal">82%</output></label>
+      <input id="quality" type="range" min="0.1" max="1" step="0.01" value="0.82">
+    </div>
+    <div class="ctrl">
+      <label for="maxDim">Max dimension (px)</label>
+      <input id="maxDim" type="number" min="0" step="1" placeholder="Original">
+    </div>
+    <div class="ctrl">
+      <label for="bg">Background</label>
+      <input id="bgColor" type="color" value="#ffffff">
+    </div>
+    <div class="ctrl buttons">
+      <button id="convertBtn" class="btn primary" disabled>Convert all</button>
+      <button id="zipBtn" class="btn" disabled>Download ZIP</button>
+      <button id="clearBtn" class="btn ghost" disabled>Clear</button>
+    </div>
+  </section>
+
+  <div id="progressWrap" class="progress-wrap hidden">
+    <div class="progress"><div id="progressBar" class="progress-bar"></div></div>
+    <div id="progressText" class="progress-text"></div>
+  </div>
+
+  <div id="summary" class="summary glow hidden"></div>
+  <div id="list" class="list"></div>
+
+  <p class="note">
+    <span>Animated GIF / WebP → first frame only · transparency flattened for JPEG &amp; BMP</span>
+    <span id="avifStatus" class="status loading">AVIF: loading…</span>
+  </p>
+
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ================================================================== */
+/*                     ANIMATED CONVERSION BACKGROUND                 */
+/* ================================================================== */
+(function background() {
+  var canvas   = document.getElementById('bgCanvas');
+  var spotEl   = document.getElementById('spotlight');
+  var ctx      = canvas.getContext('2d');
+  var reduceMotion = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var W = 0, H = 0, DPR = 1;
+  var convX = 0;
+  var particles = [];
+  var tokens    = [];
+
+  var mouse = { x: -9999, y: -9999, tx: -9999, ty: -9999, active: false };
+
+  /* ---- colour helpers ---- */
+  var RAW = [
+    [255,122,69],[255,77,148],[168,85,247],[250,204,21],[74,222,128],[248,113,113]
+  ];
+  function rawColor()  { return RAW[(Math.random() * RAW.length) | 0]; }
+  function convColor() {
+    var t = Math.random();
+    return [ Math.round(34 + t*62), Math.round(211 - t*46), Math.round(238 + t*12) ];
+  }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function smooth(t){ t = t<0?0:t>1?1:t; return t*t*(3-2*t); }
+  function mix(a,b,t){
+    return [ Math.round(lerp(a[0],b[0],t)),
+             Math.round(lerp(a[1],b[1],t)),
+             Math.round(lerp(a[2],b[2],t)) ];
+  }
+
+  /* ---- sizing ---- */
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = canvas.clientWidth  || window.innerWidth;
+    H = canvas.clientHeight || window.innerHeight;
+    canvas.width  = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    convX = W * 0.56;
+    seed();
+  }
+
+  /* ---- particle creation ---- */
+  function makeDot(initial) {
+    var y = Math.random() * H;
+    return {
+      kind:  'dot',
+      x:     initial ? Math.random() * W : -12,
+      y:     y,
+      ox: 0, oy: 0,
+      size:  0.7 + Math.random() * 1.9,
+      speed: 0.35 + Math.random() * 1.15,
+      alpha: 0.35 + Math.random() * 0.55,
+      raw:   rawColor(),
+      conv:  convColor()
+    };
+  }
+  function makeToken(initial) {
+    return {
+      kind:  'token',
+      x:     initial ? Math.random() * W : -34,
+      y:     70 + Math.random() * Math.max(40, H - 140),
+      ox: 0, oy: 0,
+      w: 11, h: 14,
+      speed: 0.42 + Math.random() * 0.55,
+      alpha: 0.85,
+      phase: Math.random() * Math.PI * 2,
+      raw:   rawColor(),
+      conv:  convColor()
+    };
+  }
+
+  function seed() {
+    var target = Math.min(140, Math.max(45, Math.round((W * H) / 15000)));
+    particles = [];
+    for (var i = 0; i < target; i++) particles.push(makeDot(true));
+    tokens = [];
+    var tCount = Math.min(14, Math.max(5, Math.round(W / 130)));
+    for (var j = 0; j < tCount; j++) tokens.push(makeToken(true));
+  }
+
+  /* ---- drawing ---- */
+  function drawConversionBand(now) {
+    var pulse = 0.055 + 0.02 * Math.sin(now * 0.0012);
+    var g = ctx.createLinearGradient(convX - 170, 0, convX + 170, 0);
+    g.addColorStop(0,   'rgba(34,211,238,0)');
+    g.addColorStop(0.45,'rgba(34,211,238,' + (pulse * 0.7) + ')');
+    g.addColorStop(0.5, 'rgba(120,200,255,' + pulse + ')');
+    g.addColorStop(0.55,'rgba(167,139,250,' + (pulse * 0.7) + ')');
+    g.addColorStop(1,   'rgba(167,139,250,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(convX - 170, 0, 340, H);
+
+    /* vertical core line */
+    var core = 0.06 + 0.035 * Math.sin(now * 0.0018);
+    ctx.fillStyle = 'rgba(150,215,255,' + core + ')';
+    ctx.fillRect(convX - 0.75, 0, 1.5, H);
+
+    /* tick marks along the line */
+    ctx.fillStyle = 'rgba(150,215,255,0.10)';
+    var step = 46;
+    for (var y = (now * 0.012) % step; y < H; y += step) {
+      ctx.fillRect(convX - 4, y, 2, 9);
+      ctx.fillRect(convX + 2, y + 23, 2, 9);
+    }
+  }
+
+  function updateCommon(p, k) {
+    /* flow left → right */
+    p.x += p.speed * k;
+    if (p.kind === 'token') {
+      p.phase += 0.014 * k;
+      p.y = p.baseY === undefined ? p.y : p.baseY;
+    }
+
+    /* mouse repulsion (offset that decays back to 0) */
+    if (mouse.active) {
+      var dx = (p.x + p.ox) - mouse.x;
+      var dy = (p.y + p.oy) - mouse.y;
+      var d2 = dx * dx + dy * dy;
+      var R  = 150;
+      if (d2 < R * R && d2 > 0.01) {
+        var d = Math.sqrt(d2);
+        var f = (R - d) / R;
+        p.ox += (dx / d) * f * 2.4;
+        p.oy += (dy / d) * f * 2.4;
+      }
+    }
+    p.ox *= 0.93;
+    p.oy *= 0.93;
+
+    /* reset when off-screen */
+    if (p.x > W + 40) {
+      var fresh = p.kind === 'token' ? makeToken(false) : makeDot(false);
+      for (var key in fresh) p[key] = fresh[key];
+      if (p.kind === 'token') p.baseY = p.y;
+    }
+  }
+
+  function drawDot(p) {
+    var x = p.x + p.ox, y = p.y + p.oy;
+    var t = smooth((p.x - (convX - 60)) / 120);
+    var c = mix(p.raw, p.conv, t);
+
+    /* soft glow halo */
+    ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (p.alpha * 0.13) + ')';
+    ctx.beginPath();
+    ctx.arc(x, y, p.size * 4.5, 0, 6.2832);
+    ctx.fill();
+
+    /* motion streak */
+    var len = p.speed * 16;
+    var sg = ctx.createLinearGradient(x - len, y, x, y);
+    sg.addColorStop(0, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0)');
+    sg.addColorStop(1, 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + p.alpha + ')');
+    ctx.strokeStyle = sg;
+    ctx.lineWidth = p.size * 0.9;
+    ctx.beginPath();
+    ctx.moveTo(x - len, y);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+
+    /* head */
+    ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + p.alpha + ')';
+    ctx.beginPath();
+    ctx.arc(x, y, p.size, 0, 6.2832);
+    ctx.fill();
+  }
+
+  function drawToken(p) {
+    if (p.baseY === undefined) p.baseY = p.y;
+    var bob = Math.sin(p.phase) * 2.2;
+    var x = p.x + p.ox;
+    var y = p.baseY + bob + p.oy;
+
+    var t = smooth((p.x - (convX - 55)) / 110);
+    var c = mix(p.raw, p.conv, t);
+
+    /* shrink slightly after conversion = smaller file */
+    var scale = 1 - t * 0.22;
+    var w = p.w * scale, h = p.h * scale;
+    var r = 2.4 * scale;
+
+    /* glow */
+    ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (0.18 + t * 0.12) + ')';
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(w, h) * 1.9, 0, 6.2832);
+    ctx.fill();
+
+    /* body */
+    var rr = function (x0, y0, ww, hh, rad) {
+      ctx.beginPath();
+      ctx.moveTo(x0 + rad, y0);
+      ctx.arcTo(x0 + ww, y0,      x0 + ww, y0 + hh, rad);
+      ctx.arcTo(x0 + ww, y0 + hh, x0,      y0 + hh, rad);
+      ctx.arcTo(x0,      y0 + hh, x0,      y0,      rad);
+      ctx.arcTo(x0,      y0,      x0 + ww, y0,      rad);
+      ctx.closePath();
+    };
+    ctx.fillStyle = 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (0.62 + t * 0.2) + ')';
+    rr(x - w / 2, y - h / 2, w, h, r);
+    ctx.fill();
+
+    /* inner "image" line */
+    ctx.strokeStyle = 'rgba(6,10,18,' + (0.5 + t * 0.2) + ')';
+    ctx.lineWidth = 1.1 * scale;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 0.26, y + h * 0.16);
+    ctx.lineTo(x - w * 0.05, y - h * 0.09);
+    ctx.lineTo(x + w * 0.12, y + h * 0.10);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(6,10,18,' + (0.5 + t * 0.2) + ')';
+    ctx.beginPath();
+    ctx.arc(x + w * 0.22, y - h * 0.20, 1.25 * scale, 0, 6.2832);
+    ctx.fill();
+  }
+
+  /* ---- main loop ---- */
+  var last = performance.now();
+  function tick(now) {
+    var dt = Math.min(48, now - last);
+    last = now;
+    var k = reduceMotion ? dt / 60 : dt / 16.667;
+
+    /* ease mouse */
+    if (mouse.tx > -9000) {
+      mouse.x += (mouse.tx - mouse.x) * 0.18;
+      mouse.y += (mouse.ty - mouse.y) * 0.18;
+      mouse.active = true;
+      spotEl.style.setProperty('--sx', mouse.x + 'px');
+      spotEl.style.setProperty('--sy', mouse.y + 'px');
+    }
+
+    ctx.clearRect(0, 0, W, H);
+    drawConversionBand(now);
+
+    for (var i = 0; i < particles.length; i++) {
+      updateCommon(particles[i], k);
+      drawDot(particles[i]);
+    }
+    for (var j = 0; j < tokens.length; j++) {
+      updateCommon(tokens[j], k);
+      drawToken(tokens[j]);
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  /* ---- events ---- */
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resize, 120);
+  });
+  window.addEventListener('pointermove', function (e) {
+    mouse.tx = e.clientX;
+    mouse.ty = e.clientY;
+  }, { passive: true });
+  window.addEventListener('pointerleave', function () {
+    mouse.active = false;
+  });
+
+  resize();
+  requestAnimationFrame(tick);
+})();
+
+/* ================================================================== */
+/*                     MOUSE-REACTIVE PANEL GLOW                      */
+/* ================================================================== */
+(function panelGlow() {
+  function bind(el) {
+    el.addEventListener('pointermove', function (e) {
+      var r = el.getBoundingClientRect();
+      el.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      el.style.setProperty('--my', (e.clientY - r.top)  + 'px');
+    });
+  }
+  var nodes = document.querySelectorAll('.glow');
+  for (var i = 0; i < nodes.length; i++) bind(nodes[i]);
+  /* expose for dynamically created rows */
+  window.__bindGlow = bind;
+})();
+
+/* ================================================================== */
+/*                       CONVERTER APPLICATION                        */
+/* ================================================================== */
+var $ = function (id) { return document.getElementById(id); };
+var dropzone     = $('dropzone'),   fileInput    = $('fileInput');
+var formatSel    = $('format'),     qualityInput = $('quality'), qualityVal = $('qualityVal');
+var maxDimIn     = $('maxDim'),     bgIn         = $('bgColor');
+var convertBtn   = $('convertBtn'), zipBtn       = $('zipBtn'), clearBtn = $('clearBtn');
+var listEl       = $('list'),       progressWrap = $('progressWrap');
+var progressBar  = $('progressBar'), progressText = $('progressText');
+var summaryEl    = $('summary'),    avifStatusEl = $('avifStatus');
+
+/* ------------------------------------------------------- format registry */
+var FORMATS = [
+  { mime:'image/jpeg',   label:'JPEG', ext:'jpg',  lossy:true,  alpha:false },
+  { mime:'image/png',    label:'PNG',  ext:'png',  lossy:false, alpha:true  },
+  { mime:'image/webp',   label:'WebP', ext:'webp', lossy:true,  alpha:true  },
+  { mime:'image/avif',   label:'AVIF', ext:'avif', lossy:true,  alpha:true, wasm:'avif' },
+  { mime:'image/bmp',    label:'BMP',  ext:'bmp',  lossy:false, alpha:false, manual:'bmp' },
+  { mime:'image/x-icon', label:'ICO',  ext:'ico',  lossy:false, alpha:true,  manual:'ico' }
+];
+var formats = [];
+
+function fmtByMime(mime) {
+  for (var i = 0; i < formats.length; i++) if (formats[i].mime === mime) return formats[i];
+  return null;
+}
+
+/* ------------------------------------------------------------- state */
+var items = [];
+var converting = false;
+var idSeq = 0;
+
+/* ------------------------------------------------------------- utils */
+function formatBytes(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (n < 1024) return n + ' B';
+  var u = ['KB','MB','GB'], i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return (n < 10 ? n.toFixed(2) : n.toFixed(1)) + ' ' + u[i];
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c];
+  });
+}
+function baseName(name) {
+  var i = name.lastIndexOf('.');
+  return i > 0 ? name.slice(0, i) : name;
+}
+function saveBlob(blob, filename) {
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 15000);
+}
+function toBlobAsync(canvas, mime, quality) {
+  return new Promise(function (res, rej) {
+    try {
+      canvas.toBlob(function (b) {
+        b ? res(b) : rej(new Error('Encoding failed — the image may be too large'));
+      }, mime, quality);
+    } catch (e) { rej(e); }
+  });
+}
+function canEncodeSync(mime) {
+  try {
+    var c = document.createElement('canvas');
+    c.width = c.height = 2;
+    var ctx = c.getContext('2d');
+    ctx.fillStyle = '#f00'; ctx.fillRect(0, 0, 2, 2);
+    return c.toDataURL(mime).indexOf('data:' + mime) === 0;
+  } catch (e) { return false; }
+}
+
+/* ==================================================================== */
+/*                    AVIF encoder (WASM, lazy CDN)                     */
+/* ==================================================================== */
+var avifState = 'idle';
+var avifEncode = null;
+var avifPromise = null;
+
+function setAvifBadge(state, text) {
+  if (!avifStatusEl) return;
+  avifStatusEl.className = 'status ' + state;
+  avifStatusEl.textContent = 'AVIF: ' + text;
+}
+
+function loadAvifEncoder() {
+  if (avifPromise) return avifPromise;
+  avifPromise = (async function () {
+    avifState = 'loading';
+    setAvifBadge('loading', 'loading…');
+    try {
+      var mod = await import('https://esm.sh/@jsquash/avif@2.1.1');
+      var enc = mod.encode || (mod.default && mod.default.encode);
+      if (typeof enc !== 'function') throw new Error('encode export missing');
+
+      var probe = new ImageData(4, 4);
+      probe.data.fill(200);
+      await enc(probe, { cqLevel: 50, speed: 10 });
+
+      avifEncode = enc;
+      avifState  = 'ready';
+      setAvifBadge('ready', 'ready');
+
+      if (!formats.some(function (f) { return f.mime === 'image/avif'; })) {
+        var avifFmt = null;
+        for (var i = 0; i < FORMATS.length; i++) if (FORMATS[i].mime === 'image/avif') avifFmt = FORMATS[i];
+        if (avifFmt) {
+          var idx = -1;
+          for (var j = 0; j < formats.length; j++) if (formats[j].mime === 'image/webp') { idx = j; break; }
+          if (idx >= 0) formats.splice(idx + 1, 0, avifFmt);
+          else formats.push(avifFmt);
+          rebuildFormatSelect();
+        }
+      }
+    } catch (e) {
+      console.warn('AVIF encoder unavailable (offline / CDN blocked):', e);
+      avifState = 'failed';
+      setAvifBadge('failed', 'unavailable');
+    }
+  })();
+  return avifPromise;
+}
+
+async function encodeAvif(canvas, quality) {
+  if (!avifEncode) throw new Error('AVIF encoder is not available');
+  var ctx = canvas.getContext('2d');
+  var imageData;
+  try {
+    imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  } catch (e) {
+    throw new Error('Cannot read pixels for AVIF encoding');
+  }
+  var cqLevel = Math.round((1 - quality) * 63);
+  if (cqLevel < 0) cqLevel = 0;
+  if (cqLevel > 63) cqLevel = 63;
+
+  var buffer;
+  try {
+    buffer = await avifEncode(imageData, { cqLevel: cqLevel, speed: 6 });
+  } catch (e) {
+    throw new Error('AVIF encoding failed: ' + (e && e.message ? e.message : 'unknown error'));
+  }
+  if (!buffer || !buffer.byteLength) throw new Error('AVIF encoder returned empty output');
+  return new Blob([buffer], { type: 'image/avif' });
+}
+
+/* ==================================================================== */
+/*                       tiny ZIP writer (STORE)                        */
+/* ==================================================================== */
+var crcTable = (function () {
+  var t = new Uint32Array(256);
+  for (var i = 0; i < 256; i++) {
+    var c = i;
+    for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf) {
+  var crc = 0xFFFFFFFF;
+  for (var i = 0; i < buf.length; i++) crc = crcTable[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+function createZip(files) {
+  var enc = new TextEncoder();
+  var parts = [], central = [], offset = 0;
+  var now = new Date();
+  var dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xFFFF;
+  var dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xFFFF;
+
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    var nameBytes = enc.encode(f.name);
+    var data = f.data;
+    var crc = crc32(data);
+    var size = data.length;
+
+    var lh = new Uint8Array(30 + nameBytes.length);
+    var ldv = new DataView(lh.buffer);
+    ldv.setUint32(0, 0x04034b50, true);
+    ldv.setUint16(4, 20, true);
+    ldv.setUint16(6, 0x0800, true);
+    ldv.setUint16(8, 0, true);
+    ldv.setUint16(10, dosTime, true);
+    ldv.setUint16(12, dosDate, true);
+    ldv.setUint32(14, crc, true);
+    ldv.setUint32(18, size, true);
+    ldv.setUint32(22, size, true);
+    ldv.setUint16(26, nameBytes.length, true);
+    ldv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+
+    parts.push(lh, data);
+
+    var ch = new Uint8Array(46 + nameBytes.length);
+    var cdv = new DataView(ch.buffer);
+    cdv.setUint32(0, 0x02014b50, true);
+    cdv.setUint16(4, 20, true);
+    cdv.setUint16(6, 20, true);
+    cdv.setUint16(8, 0x0800, true);
+    cdv.setUint16(10, 0, true);
+    cdv.setUint16(12, dosTime, true);
+    cdv.setUint16(14, dosDate, true);
+    cdv.setUint32(16, crc, true);
+    cdv.setUint32(20, size, true);
+    cdv.setUint32(24, size, true);
+    cdv.setUint16(28, nameBytes.length, true);
+    cdv.setUint16(30, 0, true);
+    cdv.setUint16(32, 0, true);
+    cdv.setUint16(34, 0, true);
+    cdv.setUint16(36, 0, true);
+    cdv.setUint32(38, 0, true);
+    cdv.setUint32(42, offset, true);
+    ch.set(nameBytes, 46);
+    central.push(ch);
+
+    offset += lh.length + size;
+  }
+
+  var cdSize = 0;
+  for (var j = 0; j < central.length; j++) cdSize += central[j].length;
+
+  var eocd = new Uint8Array(22);
+  var edv = new DataView(eocd.buffer);
+  edv.setUint32(0, 0x06054b50, true);
+  edv.setUint16(8, files.length, true);
+  edv.setUint16(10, files.length, true);
+  edv.setUint32(12, cdSize, true);
+  edv.setUint32(16, offset, true);
+
+  return new Blob(parts.concat(central, [eocd]), { type: 'application/zip' });
+}
+
+/* ==================================================================== */
+/*                     manual encoders: BMP & ICO                       */
+/* ==================================================================== */
+function canvasToBMP(canvas) {
+  var ctx = canvas.getContext('2d');
+  var w = canvas.width, h = canvas.height;
+  var data = ctx.getImageData(0, 0, w, h).data;
+  var rowSize = (w * 3 + 3) & ~3;
+  var pixelBytes = rowSize * h;
+  var fileSize = 54 + pixelBytes;
+
+  var buf = new ArrayBuffer(fileSize);
+  var dv = new DataView(buf);
+  var u8 = new Uint8Array(buf);
+
+  u8[0] = 0x42; u8[1] = 0x4D;
+  dv.setUint32(2, fileSize, true);
+  dv.setUint32(10, 54, true);
+  dv.setUint32(14, 40, true);
+  dv.setInt32(18, w, true);
+  dv.setInt32(22, h, true);
+  dv.setUint16(26, 1, true);
+  dv.setUint16(28, 24, true);
+  dv.setUint32(30, 0, true);
+  dv.setUint32(34, pixelBytes, true);
+  dv.setUint32(38, 2835, true);
+  dv.setUint32(42, 2835, true);
+
+  var off = 54;
+  for (var y = h - 1; y >= 0; y--) {
+    var p = y * w * 4;
+    for (var x = 0; x < w; x++) {
+      u8[off++] = data[p + 2];
+      u8[off++] = data[p + 1];
+      u8[off++] = data[p];
+      p += 4;
+    }
+    off += rowSize - w * 3;
+  }
+  return new Blob([buf], { type: 'image/bmp' });
+}
+
+async function canvasToICO(canvas) {
+  var src = canvas;
+  var maxSide = Math.max(canvas.width, canvas.height);
+  if (maxSide > 256) {
+    var s = 256 / maxSide;
+    var c2 = document.createElement('canvas');
+    c2.width  = Math.max(1, Math.round(canvas.width  * s));
+    c2.height = Math.max(1, Math.round(canvas.height * s));
+    var ctx = c2.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0, 0, c2.width, c2.height);
+    src = c2;
+  }
+
+  var png = await toBlobAsync(src, 'image/png');
+  if (!png || png.type !== 'image/png') throw new Error('ICO export requires PNG encoding');
+  var bytes = new Uint8Array(await png.arrayBuffer());
+
+  var head = new Uint8Array(22);
+  var dv = new DataView(head.buffer);
+  dv.setUint16(0, 0, true);
+  dv.setUint16(2, 1, true);
+  dv.setUint16(4, 1, true);
+  head[6] = src.width  >= 256 ? 0 : src.width;
+  head[7] = src.height >= 256 ? 0 : src.height;
+  dv.setUint16(10, 1, true);
+  dv.setUint16(12, 32, true);
+  dv.setUint32(14, bytes.length, true);
+  dv.setUint32(18, 22, true);
+
+  return new Blob([head, bytes], { type: 'image/x-icon' });
+}
+
+async function encodeCanvas(canvas, fmt, quality) {
+  if (fmt.manual === 'bmp') return canvasToBMP(canvas);
+  if (fmt.manual === 'ico') return canvasToICO(canvas);
+  if (fmt.wasm === 'avif')  return encodeAvif(canvas, quality);
+
+  var blob = await toBlobAsync(canvas, fmt.mime, fmt.lossy ? quality : undefined);
+  if (!blob || blob.type !== fmt.mime) {
+    throw new Error(fmt.label + ' encoding is not supported by this browser');
+  }
+  return blob;
+}
+
+/* ==================================================================== */
+/*                          decoding → canvas                           */
+/* ==================================================================== */
+function loadImageFromFile(file) {
+  return new Promise(function (res, rej) {
+    var url = URL.createObjectURL(file);
+    var img = new Image();
+    img.onload  = function () { res({ img: img, url: url }); };
+    img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('Could not decode this image')); };
+    img.src = url;
+  });
+}
+
+async function svgSize(file) {
+  try {
+    var txt = await file.text();
+    var m = /viewBox\s*=\s*["']\s*([-\d.eE]+)[\s,]+([-\d.eE]+)[\s,]+([-\d.eE]+)[\s,]+([-\d.eE]+)/i.exec(txt);
+    if (m) {
+      var w = parseFloat(m[3]), h = parseFloat(m[4]);
+      if (w > 0 && h > 0) return { w: w, h: h };
+    }
+    var wm = /\bwidth\s*=\s*["']([\d.]+)/i.exec(txt);
+    var hm = /\bheight\s*=\s*["']([\d.]+)/i.exec(txt);
+    if (wm && hm) {
+      var w2 = parseFloat(wm[1]), h2 = parseFloat(hm[1]);
+      if (w2 > 0 && h2 > 0) return { w: w2, h: h2 };
+    }
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+async function renderToCanvas(file, maxDim, bgColor, flatten, isSvg) {
+  var drawable = null, iw = 0, ih = 0, release = function () {};
+
+  if (!isSvg && typeof createImageBitmap === 'function') {
+    try {
+      drawable = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      iw = drawable.width; ih = drawable.height;
+      release = function () { try { drawable.close(); } catch (e) {} };
+    } catch (e) { drawable = null; }
+  }
+  if (!drawable) {
+    var loaded = await loadImageFromFile(file);
+    drawable = loaded.img;
+    iw = loaded.img.naturalWidth  || loaded.img.width  || 0;
+    ih = loaded.img.naturalHeight || loaded.img.height || 0;
+    release = function () { URL.revokeObjectURL(loaded.url); };
+  }
+
+  var tw, th;
+  if (isSvg) {
+    var vb = await svgSize(file);
+    if (vb) {
+      var ratio = vb.w / vb.h;
+      var base = maxDim > 0 ? maxDim : (iw > 0 && ih > 0 ? Math.max(iw, ih) : 1024);
+      if (ratio >= 1) { tw = base; th = Math.max(1, Math.round(base / ratio)); }
+      else            { th = base; tw = Math.max(1, Math.round(base * ratio)); }
+    } else {
+      tw = iw || 1024; th = ih || 1024;
+    }
+  } else {
+    tw = iw; th = ih;
+    if (maxDim > 0) {
+      var longest = Math.max(tw, th);
+      if (longest > maxDim) {
+        var s = maxDim / longest;
+        tw = Math.max(1, Math.round(tw * s));
+        th = Math.max(1, Math.round(th * s));
+      }
+    }
+  }
+  if (!tw || !th) { tw = tw || 1; th = th || 1; }
+
+  var canvas = document.createElement('canvas');
+  canvas.width = tw; canvas.height = th;
+  var ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  if (flatten) {
+    ctx.fillStyle = bgColor || '#ffffff';
+    ctx.fillRect(0, 0, tw, th);
+  }
+  ctx.drawImage(drawable, 0, 0, tw, th);
+  release();
+  return canvas;
+}
+
+/* ==================================================================== */
+/*                            UI rendering                              */
+/* ==================================================================== */
+function renderRow(item) {
+  var row = document.createElement('div');
+  row.className = 'row glow';
+  if (window.__bindGlow) window.__bindGlow(row);
+
+  var thumb = document.createElement('img');
+  thumb.className = 'thumb';
+  thumb.alt = '';
+  thumb.src = item.srcUrl;
+
+  var info = document.createElement('div');
+  info.className = 'info';
+  var nameEl = document.createElement('div');
+  nameEl.className = 'name';
+  nameEl.textContent = item.name;
+  nameEl.title = item.name;
+  var meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.textContent = formatBytes(item.file.size) + ' · queued';
+  info.appendChild(nameEl);
+  info.appendChild(meta);
+
+  var side = document.createElement('div');
+  side.className = 'row-side';
+
+  var sel = document.createElement('select');
+  formats.forEach(function (f) {
+    var o = document.createElement('option');
+    o.value = f.mime;
+    o.textContent = f.label;
+    sel.appendChild(o);
+  });
+  sel.value = item.format;
+  sel.title = 'Output format for this file';
+  sel.addEventListener('change', function () {
+    item.format = sel.value;
+    markStale(item);
+    updateButtons();
+  });
+
+  var dl = document.createElement('button');
+  dl.className = 'btn small';
+  dl.textContent = 'Download';
+  dl.disabled = true;
+  dl.addEventListener('click', function () {
+    if (item.blob) saveBlob(item.blob, item.outName);
+  });
+
+  side.appendChild(sel);
+  side.appendChild(dl);
+
+  row.appendChild(thumb);
+  row.appendChild(info);
+  row.appendChild(side);
+  listEl.appendChild(row);
+
+  item.el = { row: row, meta: meta, dl: dl, sel: sel };
+}
+
+/* ==================================================================== */
+/*                       settings & state helpers                       */
+/* ==================================================================== */
+function currentSettings() {
+  return {
+    quality: parseFloat(qualityInput.value),
+    maxDim:  Math.max(0, parseInt(maxDimIn.value, 10) || 0),
+    bg:      bgIn.value
+  };
+}
+function settingsKey(item, s) {
+  return [item.format, s.quality, s.maxDim, s.bg].join('|');
+}
+function markStale(item) {
+  if (item.status === 'done' || item.status === 'error') {
+    item.status = 'queued';
+    item.blob = null;
+    item.key = null;
+    if (item.outUrl) { URL.revokeObjectURL(item.outUrl); item.outUrl = null; }
+    if (item.el) {
+      item.el.dl.disabled = true;
+      item.el.row.classList.remove('error');
+      item.el.meta.textContent = formatBytes(item.file.size) + ' · queued';
+    }
+  }
+}
+function markAllStale() {
+  items.forEach(markStale);
+  updateButtons();
+  summaryEl.classList.add('hidden');
+}
+
+/* ==================================================================== */
+/*                            conversion                               */
+/* ==================================================================== */
+async function convertItem(item, settings) {
+  var fmt = fmtByMime(item.format);
+  if (!fmt) {
+    item.status = 'error';
+    item.el.meta.innerHTML = '<span class="err">✕ Unknown output format</span>';
+    return;
+  }
+
+  item.status = 'working';
+  item.el.row.classList.remove('error');
+  item.el.row.classList.add('working');
+  item.el.meta.textContent = formatBytes(item.file.size) + ' · converting…';
+  item.el.dl.disabled = true;
+
+  try {
+    var isSvg   = item.file.type === 'image/svg+xml' || /\.svg$/i.test(item.name);
+    var flatten = !fmt.alpha;
+
+    var canvas = await renderToCanvas(item.file, settings.maxDim, settings.bg, flatten, isSvg);
+    var blob   = await encodeCanvas(canvas, fmt, settings.quality);
+    canvas.width = canvas.height = 0;
+
+    if (item.outUrl) URL.revokeObjectURL(item.outUrl);
+    item.blob    = blob;
+    item.outUrl  = URL.createObjectURL(blob);
+    item.outName = baseName(item.name) + '.' + fmt.ext;
+    item.status  = 'done';
+    item.key     = settingsKey(item, settings);
+
+    var ratio = 1 - (blob.size / item.file.size);
+    var savings = ratio >= 0
+      ? '<span class="save">−' + Math.round(ratio * 100) + '%</span>'
+      : '<span class="err">+' + Math.round(-ratio * 100) + '%</span>';
+
+    item.el.meta.innerHTML =
+      formatBytes(item.file.size) + ' → <b>' + formatBytes(blob.size) + '</b> · ' +
+      savings + ' · ' + fmt.label;
+    item.el.row.classList.remove('working');
+    item.el.dl.disabled = false;
+
+  } catch (err) {
+    item.status = 'error';
+    item.el.row.classList.remove('working');
+    item.el.row.classList.add('error');
+    item.el.meta.innerHTML = '<span class="err">✕ ' +
+      escapeHtml(err && err.message ? err.message : 'Conversion failed') + '</span>';
+    item.el.dl.disabled = true;
+  }
+}
+
+async function convertAll() {
+  if (converting || !items.length || !formats.length) return;
+
+  var settings = currentSettings();
+  var queue = items.filter(function (it) {
+    return !(it.status === 'done' && it.key === settingsKey(it, settings));
+  });
+  if (!queue.length) { updateSummary(); return; }
+
+  converting = true;
+  updateButtons();
+  progressWrap.classList.remove('hidden');
+  progressBar.style.width = '0%';
+  progressText.textContent = '0 / ' + queue.length;
+
+  for (var i = 0; i < queue.length; i++) {
+    await convertItem(queue[i], settings);
+    var done = i + 1;
+    progressBar.style.width = (done / queue.length * 100) + '%';
+    progressText.textContent = done + ' / ' + queue.length + ' converted';
+  }
+
+  converting = false;
+  updateButtons();
+  updateSummary();
+  setTimeout(function () {
+    if (!converting) progressWrap.classList.add('hidden');
+  }, 1600);
+}
+
+/* ==================================================================== */
+/*                         summary & buttons                            */
+/* ==================================================================== */
+function updateSummary() {
+  var done = items.filter(function (i) { return i.status === 'done' && i.blob; });
+  if (!done.length) { summaryEl.classList.add('hidden'); return; }
+
+  var before = 0, after = 0;
+  done.forEach(function (i) { before += i.file.size; after += i.blob.size; });
+
+  var pct = before ? Math.round((1 - after / before) * 100) : 0;
+  var pctHtml = pct >= 0
+    ? '<span class="save">(' + pct + '% smaller)</span>'
+    : '<span class="err">(' + (-pct) + '% larger)</span>';
+
+  summaryEl.innerHTML =
+    '<b>' + done.length + '</b> of <b>' + items.length + '</b> converted · ' +
+    '<b>' + formatBytes(before) + '</b> → <b>' + formatBytes(after) + '</b> ' + pctHtml;
+  summaryEl.classList.remove('hidden');
+}
+
+function updateButtons() {
+  var ready = formats.length > 0;
+  var doneCount = items.filter(function (i) { return i.status === 'done' && i.blob; }).length;
+  convertBtn.disabled = converting || !items.length || !ready;
+  zipBtn.disabled     = converting || doneCount === 0;
+  clearBtn.disabled   = converting || !items.length;
+}
+
+function updateQualityState() {
+  var f = fmtByMime(formatSel.value);
+  var lossy = !!(f && f.lossy);
+  qualityInput.disabled = !lossy;
+  qualityVal.textContent = lossy
+    ? Math.round(parseFloat(qualityInput.value) * 100) + '%'
+    : 'n/a';
+}
+
+function rebuildFormatSelect() {
+  var current = formatSel.value;
+  formatSel.innerHTML = formats.map(function (f) {
+    return '<option value="' + f.mime + '">' + f.label + '</option>';
+  }).join('');
+
+  var stillValid = false;
+  for (var i = 0; i < formats.length; i++) {
+    if (formats[i].mime === current) { stillValid = true; break; }
+  }
+  if (stillValid) {
+    formatSel.value = current;
+  } else if (formats.length) {
+    var def = null;
+    for (var j = 0; j < formats.length; j++) if (formats[j].mime === 'image/webp') { def = formats[j]; break; }
+    if (!def) def = formats[0];
+    formatSel.value = def.mime;
+  }
+  formatSel.disabled = formats.length === 0;
+  updateQualityState();
+  updateButtons();
+}
+
+/* ==================================================================== */
+/*                              ZIP export                              */
+/* ==================================================================== */
+async function downloadZip() {
+  var done = items.filter(function (i) { return i.status === 'done' && i.blob; });
+  if (!done.length || converting) return;
+
+  zipBtn.disabled = true;
+  var oldLabel = zipBtn.textContent;
+  zipBtn.textContent = 'Zipping…';
+
+  try {
+    var used = Object.create(null);
+    var files = [];
+
+    for (var i = 0; i < done.length; i++) {
+      var it = done[i];
+      var fmt = fmtByMime(it.format);
+      var ext = fmt ? fmt.ext : 'img';
+      var name = it.outName || (baseName(it.name) + '.' + ext);
+      var n = 1;
+      while (used[name.toLowerCase()]) name = baseName(it.name) + '-' + (n++) + '.' + ext;
+      used[name.toLowerCase()] = true;
+
+      var buf = new Uint8Array(await it.blob.arrayBuffer());
+      files.push({ name: name, data: buf });
+    }
+
+    saveBlob(createZip(files), 'anyimg-converted.zip');
+  } catch (err) {
+    alert('Could not create ZIP: ' + (err && err.message ? err.message : err));
+  } finally {
+    zipBtn.textContent = oldLabel;
+    updateButtons();
+  }
+}
+
+/* ==================================================================== */
+/*                             file intake                              */
+/* ==================================================================== */
+function addFiles(fileList) {
+  var files = Array.prototype.slice.call(fileList).filter(function (f) {
+    return f && (f.type.indexOf('image/') === 0 ||
+      /\.(jpe?g|png|gif|webp|svg|avif|bmp|ico|tiff?)$/i.test(f.name));
+  });
+  if (!files.length) return;
+
+  var defaultFormat = formatSel.value && fmtByMime(formatSel.value)
+    ? formatSel.value
+    : (formats[0] ? formats[0].mime : 'image/png');
+
+  files.forEach(function (file) {
+    var item = {
+      id: ++idSeq,
+      file: file,
+      name: file.name,
+      format: defaultFormat,
+      srcUrl: URL.createObjectURL(file),
+      outUrl: null,
+      outName: '',
+      blob: null,
+      status: 'queued',
+      key: null,
+      el: null
+    };
+    items.push(item);
+    renderRow(item);
+  });
+
+  summaryEl.classList.add('hidden');
+  updateButtons();
+}
+
+function clearAll() {
+  if (converting) return;
+  items.forEach(function (it) {
+    URL.revokeObjectURL(it.srcUrl);
+    if (it.outUrl) URL.revokeObjectURL(it.outUrl);
+  });
+  items = [];
+  listEl.innerHTML = '';
+  summaryEl.classList.add('hidden');
+  progressWrap.classList.add('hidden');
+  progressBar.style.width = '0%';
+  updateButtons();
+}
+
+/* ==================================================================== */
+/*                               events                                 */
+/* ==================================================================== */
+qualityInput.addEventListener('input', function () {
+  qualityVal.textContent = Math.round(parseFloat(qualityInput.value) * 100) + '%';
+});
+qualityInput.addEventListener('change', markAllStale);
+maxDimIn.addEventListener('change', markAllStale);
+bgIn.addEventListener('change', markAllStale);
+
+formatSel.addEventListener('change', function () {
+  updateQualityState();
+  items.forEach(function (it) {
+    it.format = formatSel.value;
+    it.el.sel.value = formatSel.value;
+    markStale(it);
+  });
+  updateButtons();
+  summaryEl.classList.add('hidden');
+});
+
+dropzone.addEventListener('click', function () { fileInput.click(); });
+
+fileInput.addEventListener('change', function () {
+  if (fileInput.files && fileInput.files.length) addFiles(fileInput.files);
+  fileInput.value = '';
+});
+
+['dragenter', 'dragover'].forEach(function (ev) {
+  dropzone.addEventListener(ev, function (e) {
+    e.preventDefault(); e.stopPropagation();
+    dropzone.classList.add('drag');
+  });
+});
+['dragleave', 'drop'].forEach(function (ev) {
+  dropzone.addEventListener(ev, function (e) {
+    e.preventDefault(); e.stopPropagation();
+    dropzone.classList.remove('drag');
+  });
+});
+dropzone.addEventListener('drop', function (e) {
+  if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+});
+
+['dragover', 'drop'].forEach(function (ev) {
+  window.addEventListener(ev, function (e) { e.preventDefault(); });
+});
+
+window.addEventListener('paste', function (e) {
+  if (!e.clipboardData) return;
+  var files = e.clipboardData.files;
+  if (files && files.length) addFiles(files);
+});
+
+convertBtn.addEventListener('click', convertAll);
+zipBtn.addEventListener('click', downloadZip);
+clearBtn.addEventListener('click', clearAll);
+
+/* ==================================================================== */
+/*                                init                                  */
+/* ==================================================================== */
+function initFormats() {
+  var supported = [];
+  for (var i = 0; i < FORMATS.length; i++) {
+    var f = FORMATS[i];
+    if (f.mime === 'image/avif') continue;
+    if (f.manual) { supported.push(f); continue; }
+    if (canEncodeSync(f.mime)) supported.push(f);
+  }
+  formats = supported;
+  rebuildFormatSelect();
+  loadAvifEncoder();
+}
+
+qualityVal.textContent = Math.round(parseFloat(qualityInput.value) * 100) + '%';
+updateButtons();
+initFormats();
+
+})();
+</script>
+</body>
+</html>
