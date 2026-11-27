@@ -1,4 +1,4 @@
-https://sub0kanzai.github.io/AnyIMG_Converter/
+Git Hosted: https://sub0kanzai.github.io/AnyIMG_Converter/
 
 
 AnyIMG Converter
