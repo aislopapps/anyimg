@@ -1,4 +1,4 @@
-Git Hosted: https://aislopapps.github.io/anyimg/
+Git Hosted: 
 
 
 AnyIMG Converter
